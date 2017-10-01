@@ -1,21 +1,59 @@
 #include "ac3.h"
+FILE *resultfp;
 
-main()
+int main()
 {
-//    Queue* q=que_init();
-//    printf("%d\n",q->head);
-	
+
 	AC_STRUCT *ACTree = ac_alloc();
-//	printf("%d",sizeof(*ACTree));
 	ACTree->psize = 0;
-	char* ch = "abcd";
-	char* ch1 = "aefg";
-	char* ch2 = "chae";
-	ac_add_string(ACTree, ch, 4, 1);
-	ac_add_string(ACTree, ch1, 4, 2);
-	ac_add_string(ACTree, ch2, 4, 3);
+
+    char sline[100];
+    FILE *fp, *strfp;
+    if((fp = fopen("C:/Users/zhaol/Desktop/strsearch/pattern.txt","r")) == NULL)
+    {
+    	printf("file pattern.txt open failed!\n");
+    	return;
+	}
+    int i=1,j,len;
+    while(!feof(fp))
+    {
+    	fgets(sline,100,fp);
+    	len=strlen(sline)-1;     //去掉换行符'\n' 
+    	Pa p=malloc(sizeof(Pattern));
+		for(j=0;j<len;j++)
+		   p->P[j]=sline[j];
+		p->P[len]='\0';
+		p->length = len;
+		Patterns[i]=p;
+		
+		ac_add_string(ACTree, sline, len, i);
+    	i++;
+	}
+	
 	ac_implement(ACTree);
-	preorder(ACTree->root->next);
+
+	if((strfp = fopen("C:/Users/zhaol/Desktop/strsearch/string.txt","r")) == NULL)
+    {
+    	printf("file string.txt open failed!\n");
+    	return;
+	}
+	if((resultfp = fopen("C:/Users/zhaol/Desktop/strsearch/result.txt","w")) == NULL)
+    {
+    	printf("file result.txt open failed!\n");
+    	return;
+	}
+	char str[10000];
+	while(!feof(strfp))
+	{
+		fgets(str,10000,strfp);
+		search_init(ACTree, strlen(str)-1, str);
+	    ac_search(ACTree);
+	}
+	fclose(fp);
+	fclose(resultfp);
+	fclose(strfp);
+	printf("程序结束...\n");
+	return 0;
 } 
 
 
@@ -90,7 +128,7 @@ TSTree dequeue(Queue* q)
  *
  * Returns:  A dynamically allocated AC_STRUCT structure.
  */
-AC_STRUCT *ac_alloc(void)
+AC_STRUCT * ac_alloc()
 {
   AC_STRUCT *node;
 
@@ -103,7 +141,7 @@ AC_STRUCT *ac_alloc(void)
     return NULL;
   }
   memset(node->root, 0, sizeof(TSNode));
-
+  
   return node;
 }
 
@@ -319,6 +357,69 @@ int ac_implement(AC_STRUCT* node)
 	}
 	return 1;
 } 
+
+//搜索之前对AC自动机初始化
+void search_init(AC_STRUCT* node, long cNum, char* S)
+{
+	node->startPoint = node->startPoint + node->cNum;
+	node->cNum = cNum;
+	node->S = S;
+	node->currentPoint = 0;
+} 
+
+
+//AC搜索
+int ac_search(AC_STRUCT* node)
+{
+	long i;
+	int flag;
+	char* S = node->S;
+	TSTree currentState,child;
+	if(node->startPoint == 0)
+		node->currentState = node->root;
+	currentState = node->currentState;
+	for(i=0; i<node->cNum; i++)
+	{
+		child=currentState->next;
+//		flag=1;
+		while(currentState!=node->root || child!=NULL)
+		{
+			if(child==NULL)
+			{
+				currentState = currentState->faillink;
+				child = currentState->next;
+				continue;
+			}
+			
+			if(child->data == S[i])
+			{
+				currentState = child;
+				node->currentState = child;
+				node->currentPoint = i+1; 
+				if(child->stateId!=0)
+					Print(node);
+				break;
+			}
+			else if(S[i] > child->data)
+				child = child->rchild;
+			else
+				child = child->lchild;
+				
+		}
+			 
+	}
+}
+
+void Print(AC_STRUCT* node)
+{
+	TSTree currentNode;
+	currentNode = node->currentState;
+	while(currentNode!=NULL)
+	{
+		fprintf(resultfp,"%s  %d\n",Patterns[currentNode->stateId]->P, node->startPoint+node->currentPoint-Patterns[currentNode->stateId]->length);
+		currentNode = currentNode->outlink;
+	}
+}
 
 
 
