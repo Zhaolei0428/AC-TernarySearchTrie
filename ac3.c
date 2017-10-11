@@ -1,46 +1,50 @@
 #include "ac3.h"
 FILE *resultfp;
 
-int main()
+int main(int argc, char* argv[])
 {
-
+	printf("程序开始\n");
+	DWORD start, end;
+	start=GetTickCount();
 	AC_STRUCT *ACTree = ac_alloc();
 	ACTree->psize = 0;
-
-    char sline[100];
     FILE *fp, *strfp;
-    if((fp = fopen("C:/Users/zhaol/Desktop/strsearch/pattern.txt","r")) == NULL)
+    if((fp = fopen(argv[2],"r")) == NULL)
     {
     	printf("file pattern.txt open failed!\n");
-    	return;
+    	return 0;
 	}
-    int i=1,j,len;
+    int i=1,j;
     while(!feof(fp))
     {
-    	fgets(sline,100,fp);
-    	len=strlen(sline)-1;     //去掉换行符'\n' 
-    	Pa p=malloc(sizeof(Pattern));
-		for(j=0;j<len;j++)
-		   p->P[j]=sline[j];
-		p->P[len]='\0';
-		p->length = len;
-		Patterns[i]=p;
-		
-		ac_add_string(ACTree, sline, len, i);
-    	i++;
+    	char* p = malloc(sizeof(char) * 100);
+    	fgets(p,100,fp);
+    	p[strlen(p)-1]='\0';     //去掉换行符 
+    	sline[i++]=p;	
 	}
+	printf("读入结束 %d\n",i-1);
+	quickSort(1,--i);     //排序 
+	printf("排序结束 %d\n",i);
+	flushP(1,i);          //洗牌 
+	printf("洗牌结束 %d\n",i);
+	for(j=1;j<=i;j++)
+	{
+		ac_add_string(ACTree, Patterns[j]->P, Patterns[j]->length, j);
+	}
+	fclose(fp);
+	printf("插入结束\n");
 	
 	ac_implement(ACTree);
 
-	if((strfp = fopen("C:/Users/zhaol/Desktop/strsearch/string.txt","r")) == NULL)
+	if((strfp = fopen(argv[1],"r"))== NULL)
     {
     	printf("file string.txt open failed!\n");
-    	return;
+    	return 0;
 	}
-	if((resultfp = fopen("C:/Users/zhaol/Desktop/strsearch/result.txt","w")) == NULL)
+	if((resultfp = fopen(argv[3],"w")) == NULL)
     {
     	printf("file result.txt open failed!\n");
-    	return;
+    	return 0;
 	}
 	char str[10000];
 	while(!feof(strfp))
@@ -49,14 +53,28 @@ int main()
 		search_init(ACTree, strlen(str)-1, str);
 	    ac_search(ACTree);
 	}
-	fclose(fp);
 	fclose(resultfp);
 	fclose(strfp);
-	printf("程序结束...\n");
+	end=GetTickCount();
+	printf("time: %d s\n",(end - start)/1000);
 	return 0;
 } 
 
-
+//将模式串洗牌 
+void flushP(int left,int right)
+{
+	static int i=1;
+	int mid=(left+right)/2;
+	Pa p=malloc(sizeof(Pattern));
+	p->P=sline[mid];
+	p->length = strlen(sline[mid]);
+	Patterns[i++]=p;
+	if(left<mid)
+		flushP(left,mid-1);
+	if(mid<right)
+		flushP(mid+1,right);
+} 
+	 
 //先根序遍历 ，调试用 
 void preorder(TSTree node){
 	TSTree currentNode;
@@ -94,7 +112,7 @@ int empty(Queue* q)
 }
 
 //入队，成功返回1，否则返回0 
-int enqueue(Queue* q, TSTree node)
+inline int enqueue(Queue* q, TSTree node)
 {
 	if((q->head-q->tail+maxn)%maxn==1)
 		return 0;
@@ -106,7 +124,7 @@ int enqueue(Queue* q, TSTree node)
     }
 } 
 //出队，返回出队节点或NULL（队空） 
-TSTree dequeue(Queue* q)
+inline TSTree dequeue(Queue* q)
 {
 	if(q->head==q->tail)
 		return NULL;
@@ -214,9 +232,13 @@ int ac_add_string(AC_STRUCT *node, char *P, int M, int id)
 			flag = 2;
 		} 
 	}
-	//串已存在，返回0 
+	//串已存在，返回1，标id 
 	if(i==M)
-		return 0; 
+	{
+		preNode->stateId=id;
+		node->psize++;
+		return 1;
+	} 
 	
 	if((newNode = malloc(sizeof(TSNode))) == NULL)     
 		return -1;
@@ -359,7 +381,7 @@ int ac_implement(AC_STRUCT* node)
 } 
 
 //搜索之前对AC自动机初始化
-void search_init(AC_STRUCT* node, long cNum, char* S)
+inline void search_init(AC_STRUCT* node, long cNum, char* S)
 {
 	node->startPoint = node->startPoint + node->cNum;
 	node->cNum = cNum;
@@ -381,7 +403,6 @@ int ac_search(AC_STRUCT* node)
 	for(i=0; i<node->cNum; i++)
 	{
 		child=currentState->next;
-//		flag=1;
 		while(currentState!=node->root || child!=NULL)
 		{
 			if(child==NULL)
@@ -397,7 +418,15 @@ int ac_search(AC_STRUCT* node)
 				node->currentState = child;
 				node->currentPoint = i+1; 
 				if(child->stateId!=0)
+				{
+					node->outState=child;
 					Print(node);
+				}
+				else if(child->outlink!=NULL)
+				{
+					node->outState=child->outlink;
+					Print(node);
+				} 
 				break;
 			}
 			else if(S[i] > child->data)
@@ -412,8 +441,7 @@ int ac_search(AC_STRUCT* node)
 
 void Print(AC_STRUCT* node)
 {
-	TSTree currentNode;
-	currentNode = node->currentState;
+	TSTree currentNode = node->outState;
 	while(currentNode!=NULL)
 	{
 		fprintf(resultfp,"%s  %d\n",Patterns[currentNode->stateId]->P, node->startPoint+node->currentPoint-Patterns[currentNode->stateId]->length);
@@ -421,7 +449,30 @@ void Print(AC_STRUCT* node)
 	}
 }
 
-
+//快排，给模式串排序 
+void quickSort(int left, int right)
+{
+	if(left>=right)
+	     return;
+	int i=left;
+	int j=right; 
+	int mid=(i+j)/2;
+	char* key=sline[mid];
+	sline[mid]=sline[left];
+	
+	while(i<j)
+	{
+		while(i<j && strcmp(key,sline[j])<=0)
+			j--;
+		sline[i]=sline[j];
+		while(i<j && strcmp(key,sline[i])>=0)
+			i++;
+		sline[j]=sline[i];
+	}
+	sline[i]=key;
+	quickSort(left,i-1);
+	quickSort(i+1,right);
+}
 
 
 

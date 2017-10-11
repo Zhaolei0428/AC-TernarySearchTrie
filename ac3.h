@@ -1,17 +1,19 @@
 #include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
+#include<windows.h>
 
 #define maxn 1000000
 #define maxp 100
 #define maxpnum 2000000
 
 typedef struct{
-	char P[maxp];
+	char *P;
 	int length;
 }Pattern, *Pa;
 
 Pa Patterns[maxpnum];
+char* sline[1500000];
 
 //************TernarySearchTrie三叉树的结构******************** 
 typedef struct TSNode{
@@ -30,7 +32,7 @@ typedef struct {
   long startPoint, cNum, currentPoint;               //文件位置起始点，搜索串长度 ,目前串位置 
   int psize;                           //模式串个数 
   char* S;                             //搜索串序列 
-  TSTree currentState;         //当前搜索到的节点
+  TSTree currentState, outState;         //当前搜索到的节点,待输出节点 
 } AC_STRUCT;
 
 
@@ -67,5 +69,7 @@ int empty(Queue* q);
 //*************先序遍历，做调试用************* 
 void preorder(TSTree node);
 
-
-
+//快排 
+void quickSort(int left, int right); 
+//将模式串洗牌 
+void flushP(int left,int right); 
