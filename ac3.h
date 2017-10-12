@@ -6,6 +6,7 @@
 #define maxn 1000000
 #define maxp 100
 #define maxpnum 2000000
+#define buffersize 50000000
 
 typedef struct{
 	char *P;
@@ -14,6 +15,7 @@ typedef struct{
 
 Pa Patterns[maxpnum];
 char* sline[1500000];
+char buffer[buffersize];     //存储搜索串的buffer 
 
 //************TernarySearchTrie三叉树的结构******************** 
 typedef struct TSNode{
@@ -49,8 +51,6 @@ int ac_implement(AC_STRUCT* node);
 void search_init(AC_STRUCT* node, long cNum, char* S); 
 //AC搜索
 int ac_search(AC_STRUCT* node);
-//输出函数
-void Print(AC_STRUCT* node); 
 
 //***********队列结构************************** 
 typedef struct{
@@ -66,10 +66,14 @@ TSTree dequeue(Queue* q);
 //判空操作 
 int empty(Queue* q);
 
-//*************先序遍历，做调试用************* 
-void preorder(TSTree node);
-
 //快排 
 void quickSort(int left, int right); 
 //将模式串洗牌 
-void flushP(int left,int right); 
+void flushP(int left,int right);
+
+//*************先序遍历，做调试用************* 
+//void preorder(TSTree node);
+
+//输出函数
+//void Print(AC_STRUCT* node); 
+

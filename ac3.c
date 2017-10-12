@@ -1,9 +1,12 @@
 #include "ac3.h"
 FILE *resultfp;
 
+
 int main(int argc, char* argv[])
 {
 	printf("程序开始\n");
+	long lSize=buffersize;
+	size_t result;
 	DWORD start, end;
 	start=GetTickCount();
 	AC_STRUCT *ACTree = ac_alloc();
@@ -22,35 +25,45 @@ int main(int argc, char* argv[])
     	p[strlen(p)-1]='\0';     //去掉换行符 
     	sline[i++]=p;	
 	}
-	printf("读入结束 %d\n",i-1);
+	end=GetTickCount();
+	printf("读入结束 %d\n",(end - start)/1000);
 	quickSort(1,--i);     //排序 
-	printf("排序结束 %d\n",i);
+	end=GetTickCount();
+	printf("排序结束 %d\n",(end - start)/1000);
 	flushP(1,i);          //洗牌 
-	printf("洗牌结束 %d\n",i);
+	end=GetTickCount();
+	printf("洗牌结束 %d\n",(end - start)/1000);
 	for(j=1;j<=i;j++)
 	{
 		ac_add_string(ACTree, Patterns[j]->P, Patterns[j]->length, j);
 	}
 	fclose(fp);
-	printf("插入结束\n");
+	end=GetTickCount();
+	printf("插入结束 %d\n",(end - start)/1000);
 	
 	ac_implement(ACTree);
-
-	if((strfp = fopen(argv[1],"r"))== NULL)
+	end=GetTickCount();
+    printf("自动机完成 %d\n",(end - start)/1000);
+    
+	if((strfp = fopen(argv[1],"rb"))== NULL)
     {
     	printf("file string.txt open failed!\n");
     	return 0;
 	}
+	
 	if((resultfp = fopen(argv[3],"w")) == NULL)
     {
     	printf("file result.txt open failed!\n");
     	return 0;
 	}
-	char str[10000];
+	
+//	char str[10000];
 	while(!feof(strfp))
 	{
-		fgets(str,10000,strfp);
-		search_init(ACTree, strlen(str)-1, str);
+//		fgets(str,10000,strfp);
+        result = fread(buffer,1,lSize,strfp);
+        printf("%u\n",result);
+		search_init(ACTree, result, buffer);
 	    ac_search(ACTree);
 	}
 	fclose(resultfp);
@@ -58,7 +71,7 @@ int main(int argc, char* argv[])
 	end=GetTickCount();
 	printf("time: %d s\n",(end - start)/1000);
 	return 0;
-} 
+}//end main 
 
 //将模式串洗牌 
 void flushP(int left,int right)
@@ -74,23 +87,6 @@ void flushP(int left,int right)
 	if(mid<right)
 		flushP(mid+1,right);
 } 
-	 
-//先根序遍历 ，调试用 
-void preorder(TSTree node){
-	TSTree currentNode;
-	currentNode=node;
-	if(currentNode!=NULL)
-	{
-		printf("%c %d...",currentNode->data,currentNode->stateId);
-		if(currentNode->faillink!=NULL)
-			printf("%c %d\n",currentNode->faillink->data,currentNode->faillink->stateId);
-		else
-		    printf("\n");
-		preorder(currentNode->lchild);
-		preorder(currentNode->next);
-		preorder(currentNode->rchild);
-	}
-}
 
 //存储树节点的队列，辅助实现faillink
 Queue* que_init()
@@ -124,7 +120,7 @@ inline int enqueue(Queue* q, TSTree node)
     }
 } 
 //出队，返回出队节点或NULL（队空） 
-inline TSTree dequeue(Queue* q)
+TSTree dequeue(Queue* q)
 {
 	if(q->head==q->tail)
 		return NULL;
@@ -141,8 +137,6 @@ inline TSTree dequeue(Queue* q)
  * ac_alloc
  *
  * Creates a new AC_STRUCT structure and initializes its fields.
- *
- * Parameters:    none.
  *
  * Returns:  A dynamically allocated AC_STRUCT structure.
  */
@@ -164,23 +158,10 @@ AC_STRUCT * ac_alloc()
 }
 
 /*
- * ac_add_string
- *
- * Adds a string to the AC_STRUCT structure's keyword tree.
- *
- * NOTE:  The `id' value given must be unique to any of the strings
- *        added to the tree, and must be a small integer greater than
- *        0 (since it is used to index an array holding information
- *        about each of the strings).
- *
- *        The best id's to use are to number the strings from 1 to K.
- *
  * Parameters:   node      -  an AC_STRUCT structure
  *               P         -  the sequence
  *               M         -  the sequence length
  *               id        -  the sequence identifier
- *
- * Returns:  non-zero on success, zero on error.
  */
 int ac_add_string(AC_STRUCT *node, char *P, int M, int id)
 {
@@ -381,7 +362,7 @@ int ac_implement(AC_STRUCT* node)
 } 
 
 //搜索之前对AC自动机初始化
-inline void search_init(AC_STRUCT* node, long cNum, char* S)
+void search_init(AC_STRUCT* node, long cNum, char* S)
 {
 	node->startPoint = node->startPoint + node->cNum;
 	node->cNum = cNum;
@@ -396,7 +377,7 @@ int ac_search(AC_STRUCT* node)
 	long i;
 	int flag;
 	char* S = node->S;
-	TSTree currentState,child;
+	TSTree currentState,child,outNode;
 	if(node->startPoint == 0)
 		node->currentState = node->root;
 	currentState = node->currentState;
@@ -419,13 +400,21 @@ int ac_search(AC_STRUCT* node)
 				node->currentPoint = i+1; 
 				if(child->stateId!=0)
 				{
-					node->outState=child;
-					Print(node);
+					node->outState=outNode=child;
+					while(outNode!=NULL)
+					{
+						fprintf(resultfp,"%s  %d\n",Patterns[outNode->stateId]->P, node->startPoint+node->currentPoint-Patterns[outNode->stateId]->length);
+						outNode = outNode->outlink;
+					}
 				}
 				else if(child->outlink!=NULL)
 				{
-					node->outState=child->outlink;
-					Print(node);
+					node->outState=outNode=child->outlink;
+					while(outNode!=NULL)
+					{
+						fprintf(resultfp,"%s  %d\n",Patterns[outNode->stateId]->P, node->startPoint+node->currentPoint-Patterns[outNode->stateId]->length);
+						outNode = outNode->outlink;
+					}
 				} 
 				break;
 			}
@@ -436,16 +425,6 @@ int ac_search(AC_STRUCT* node)
 				
 		}
 			 
-	}
-}
-
-void Print(AC_STRUCT* node)
-{
-	TSTree currentNode = node->outState;
-	while(currentNode!=NULL)
-	{
-		fprintf(resultfp,"%s  %d\n",Patterns[currentNode->stateId]->P, node->startPoint+node->currentPoint-Patterns[currentNode->stateId]->length);
-		currentNode = currentNode->outlink;
 	}
 }
 
@@ -474,6 +453,29 @@ void quickSort(int left, int right)
 	quickSort(i+1,right);
 }
 
+//void Print(AC_STRUCT* node)
+//{
+//	TSTree currentNode = node->outState;
+//	while(currentNode!=NULL)
+//	{
+//		fprintf(resultfp,"%s  %d\n",Patterns[currentNode->stateId]->P, node->startPoint+node->currentPoint-Patterns[currentNode->stateId]->length);
+//		currentNode = currentNode->outlink;
+//	}
+//}
 
-
-
+//先根序遍历 ，调试用 
+//void preorder(TSTree node){
+//	TSTree currentNode;
+//	currentNode=node;
+//	if(currentNode!=NULL)
+//	{
+//		printf("%c %d...",currentNode->data,currentNode->stateId);
+//		if(currentNode->faillink!=NULL)
+//			printf("%c %d\n",currentNode->faillink->data,currentNode->faillink->stateId);
+//		else
+//		    printf("\n");
+//		preorder(currentNode->lchild);
+//		preorder(currentNode->next);
+//		preorder(currentNode->rchild);
+//	}
+//}
